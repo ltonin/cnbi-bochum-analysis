@@ -1,17 +1,17 @@
 clearvars; clc;
 
-subject = 'BOCH02';
-% subject = 'aj1';
+% subject = 'BOCH02';
+subject = 'aj1';
 
-pattern = '*online.mi.*.gdf';
+pattern = '*.mi.*.gdf';
 
-experiment  = 'mi_wheelchair';
-datapath    = ['/mnt/data/Research/analysis_wheelchair_bochum/' subject '_' experiment '/'];
+% experiment  = 'mi_wheelchair';
+% datapath    = ['/mnt/data/Research/analysis_wheelchair_bochum/' subject '_' experiment '/'];
 
-% experiment  = 'micontinuous';
-% datapath    = ['/mnt/data/Research/micontinuous/' subject '_' experiment '/'];
+experiment  = 'micontinuous';
+datapath    = ['/mnt/data/Research/micontinuous/' subject '_' experiment '/'];
 
-spatialfilter = 'none';
+spatialfilter = 'laplacian';
 savedir       = ['analysis/psd/' spatialfilter '/'];
 recompute     = false;
 
@@ -22,16 +22,16 @@ pshift     = 0.25;
 wshift     = 0.0625;                
 selfreqs   = 4:2:96;
 selchans   = 1:32;                  
-load('extra/laplacian32.mat');
-chanlabels = {'Fz', 'FC5', 'FC1', 'FC2', 'FC6', 'C3', 'Cz', 'C4',  ...
-			  'CP5', 'CP1', 'CP2', 'CP6', 'P3', 'Pz', 'P4', 'POz', ...
-			  'EOG', 'F1', 'F2', 'FC3', 'FCz', 'FC4', 'C5', 'C1',  ...
-			  'C2', 'C6', 'CP3', 'CP4', 'P5', 'P1', 'P2', 'P6'};
-% selchans   = 1:16;
-% load('extra/laplacian16.mat');
-% chanlabels = {'Fz', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', ...
-%               'C3', 'C1', 'Cz', 'C2', 'C4', ...
-%               'CP3', 'CP1', 'CPz', 'CP2', 'CP4'};
+% load('extra/laplacian32.mat');
+% chanlabels = {'Fz', 'FC5', 'FC1', 'FC2', 'FC6', 'C3', 'Cz', 'C4',  ...
+% 			  'CP5', 'CP1', 'CP2', 'CP6', 'P3', 'Pz', 'P4', 'POz', ...
+% 			  'EOG', 'F1', 'F2', 'FC3', 'FCz', 'FC4', 'C5', 'C1',  ...
+% 			  'C2', 'C6', 'CP3', 'CP4', 'P5', 'P1', 'P2', 'P6'};
+selchans   = 1:16;
+load('extra/laplacian16.mat');
+chanlabels = {'Fz', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', ...
+              'C3', 'C1', 'Cz', 'C2', 'C4', ...
+              'CP3', 'CP1', 'CPz', 'CP2', 'CP4'};
 
 winconv = 'backward'; 
 
@@ -110,9 +110,13 @@ for fId = 1:NumFiles
     modality = cinfo.modality;
     
     % Protocol
-    if ( isempty(cinfo.extra{2}) == false)
-        protocol = cinfo.extra{2};
-    else
+    try
+        if ( isempty(cinfo.extra{2}) == false)
+            protocol = cinfo.extra{2};
+        else
+            protocol = 'none';
+        end
+    catch
         protocol = 'none';
     end
     
