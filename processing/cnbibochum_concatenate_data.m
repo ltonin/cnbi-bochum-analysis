@@ -1,5 +1,6 @@
 function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_data(files)
 
+    warning('off', 'backtrace');
     numfiles = length(files);
     
     % Getting size info to allocate memory and speedup the concatenation
@@ -57,6 +58,9 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_dat
             case 'online'       % full feedback
                 cprotocol = 2;
             case ''
+                cprotocol = 1;
+                warning('Empty protocol');
+            case 'none'
                 cprotocol = 1;
                 warning('Empty protocol');
             otherwise
@@ -142,6 +146,7 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_dat
     labels.Wk = Wk;
     labels.Nk = Nk;
    
+    warning('on', 'backtrace');
 end
 
 function dsizes = get_data_size(filepaths)
