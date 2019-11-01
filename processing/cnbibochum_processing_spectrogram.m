@@ -1,19 +1,21 @@
 clearvars; clc;
 
-% subject = 'BOCH02';
-subject = 'aj1';
+subject = 'BOCH04';
 
-pattern = '*.mi.*.gdf';
+includepat  = {subject, 'mi', 'mi_bhbf'};
+excludepat  = {};
+depthlevel  = 2;
 
-% experiment  = 'mi_wheelchair';
-% datapath    = ['/mnt/data/Research/analysis_wheelchair_bochum/' subject '_' experiment '/'];
+experiment  = 'mi_wheelchair';
+datapath    = ['/mnt/data/Research/mi_wheelchair_bochum/' subject '_' experiment '/'];
 
-experiment  = 'micontinuous';
-datapath    = ['/mnt/data/Research/micontinuous/' subject '_' experiment '/'];
+artifactrej       = 'none'; % {'FORCe', 'none'}
+ForceWinLength    = 1.0;
+chanlocs32        = 'antneuro32.mat';
+spatialfilter     = 'laplacian';
+savedir           = ['analysis/' artifactrej '/psd/' spatialfilter '/'];
+recompute         = true;
 
-spatialfilter = 'laplacian';
-savedir       = ['analysis/psd/' spatialfilter '/'];
-recompute     = false;
 
 %% Processing parameters
 mlength    = 1;
@@ -21,23 +23,16 @@ wlength    = 0.5;
 pshift     = 0.25;                  
 wshift     = 0.0625;                
 selfreqs   = 4:2:96;
-selchans   = 1:32;                  
-% load('extra/laplacian32.mat');
-% chanlabels = {'Fz', 'FC5', 'FC1', 'FC2', 'FC6', 'C3', 'Cz', 'C4',  ...
-% 			  'CP5', 'CP1', 'CP2', 'CP6', 'P3', 'Pz', 'P4', 'POz', ...
-% 			  'EOG', 'F1', 'F2', 'FC3', 'FCz', 'FC4', 'C5', 'C1',  ...
-% 			  'C2', 'C6', 'CP3', 'CP4', 'P5', 'P1', 'P2', 'P6'};
-selchans   = 1:16;
-load('extra/laplacian16.mat');
-chanlabels = {'Fz', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4', ...
-              'C3', 'C1', 'Cz', 'C2', 'C4', ...
-              'CP3', 'CP1', 'CPz', 'CP2', 'CP4'};
-
 winconv = 'backward'; 
 
 %% Get datafiles
-files = cnbibochum_util_getdata(datapath, pattern);
+files = util_getfile3(datapath, '.gdf', 'include', includepat, 'exclude', excludepat, 'level', depthlevel);
 NumFiles = length(files);
+if(NumFiles > 0)
+    util_bdisp(['[io] - Found ' num2str(NumFiles) ' files with the inclusion/exclusion criteria: (' strjoin(includepat, ', ') ') / (' strjoin(excludepat, ', ') '), depth: ' num2str(depthlevel)]);
+else
+    error(['[io] - No files found with the inclusion/exclusion criteria: (' strjoin(includepat, ', ') ') / (' strjoin(excludepat, ', ') '), depth: ' num2str(depthlevel)]);
+end
 
 %% Create/Check for savepath
 util_mkdir(pwd, savedir);
@@ -63,20 +58,51 @@ for fId = 1:NumFiles
     disp('     |-Loading GDF data');
     try
         [s, h] = sload(cfilename);
-    catch
-        warning(['[warning] - Error loading filename ' cfilename '. Skipping it.']);
+    catch ME
+        warning('[warning] - Cannot load filename. Skipping it.');
+        warning(['[warning] - Error: ' ME.message]);
         continue;
     end
-    s = s(:, selchans);
     
+    % Processing data
+    util_bdisp('[proc] + Processing the data');
+    
+    % Extract channels
+    switch(size(s, 2))
+        case 33
+            layout = 'eeg.antneuro.32.mi';
+        case 65
+            layout = 'eeg.antneuro.64.mi';
+        otherwise
+            error(['Unknown layout with this number of channels: ' num2str(size(s, 2))]);
+    end
+    [montage, labels] = proc_get_montage(layout);
+    
+    if isequal(h.Label(1:end-1), upper(labels)') == false
+        warning('Different labels in the data file and in the provided layout');
+    end
+    s = s(:, 1:end-1);
+    disp(['       |-Number of channels: ' num2str(size(s, 2))]);
+    disp(['       |-Layout: ' layout]);
+    
+    % Artifact removal
+    disp(['       |-Artifact removal: ' artifactrej]);
+    switch(artifactrej) 
+        case 'FORCe'
+            s_artrem = cnbibochum_artifact_force(s, ForceWinLength, h.SampleRate, chanlocs32);
+        case 'none'
+            s_artrem = s;
+        otherwise
+            error('Unknown artifact rejection method');
+    end
     
     % Computed DC removal
-    util_bdisp('[proc] + Processing the data');
     disp('       |-DC removal');
-    s_dc = s-repmat(mean(s),size(s,1),1);
+    s_dc = s_artrem-repmat(mean(s_artrem),size(s_artrem,1),1);
     
     % Compute Spatial filter
     disp(['       |-Spatial filter: ' spatialfilter]);
+    lap = proc_laplacian_mask(montage, 1, 'cross');
     switch(spatialfilter)
         case 'none'
             s_filt = s_dc;
@@ -109,22 +135,49 @@ for fId = 1:NumFiles
     disp('       |-Extract additional info (modality, protocol, date)');
     modality = cinfo.modality;
     
+    % Feedback
+    switch(cinfo.extra{2})
+        case 'offline'
+            feedback = 'fake';
+        case 'positive'
+            feedback = 'positive';
+        case 'online'
+            feedback = 'full';
+        case 'guided'
+            feedback = 'full';
+        case 'control'
+            feedback = 'full';
+        otherwise
+            feedback = 'unknown';
+    end
+    
     % Protocol
-    try
-        if ( isempty(cinfo.extra{2}) == false)
-            protocol = cinfo.extra{2};
-        else
-            protocol = 'none';
-        end
-    catch
-        protocol = 'none';
+    switch(cinfo.extra{2})
+        case 'offline'
+            protocol = 'bci-calibration';
+        case 'positive'
+            protocol = 'bci-training';
+        case 'online'
+            protocol = 'bci-training';
+        case 'guided'
+            protocol = 'wheelchair-training';
+        case 'control'
+            protocol = 'wheelchair-control';
+        otherwise
+            protocol = 'unknown';
     end
     
     % Date
     date = cinfo.date;
     
     % Get classifier from log file
-    classifier = [];
+    classifier.filename    = '';
+    classifier.gau         = [];
+    classifier.features    = [];
+    classifier.rejection   = [];
+    classifier.integration = [];
+    classifier.thresholds  = [];
+    classifier.classes     = [];
     if strcmpi(modality, 'offline') == false
         clogfile = [datapath '/'  cinfo.date '/' cinfo.subject '.' cinfo.date '.log'];
         
@@ -134,9 +187,9 @@ for fId = 1:NumFiles
         clogstr = cnbibochum_read_logfile(clogfile, ctarget);
         
         try
-            canalysis = load([datapath '/' cinfo.date '/' clogstr.classifier]);
+            canalysis = load([datapath '/classifiers/' clogstr.classifier]);
         catch 
-            error('chk:classifier', ['Classifier ''' clogstr.classifier ''' not found in ' datapath '/' cinfo.date '/']);
+            error('chk:classifier', ['Classifier ''' clogstr.classifier ''' not found in ' datapath '/classifiers/']);
         end
         
         classifier.filename    = clogstr.classifier;
@@ -154,8 +207,10 @@ for fId = 1:NumFiles
     settings.data.filename          = cfilename;
     settings.data.nsamples          = size(s, 1);
     settings.data.nchannels         = size(s, 2);
-    settings.data.lchannels         = chanlabels;
+    settings.data.lchannels         = labels;
     settings.data.samplerate        = h.SampleRate;
+    settings.artifact.name          = artifactrej;
+    settings.artifact.force.wlength = ForceWinLength;
     settings.spatial.laplacian      = lap;
     settings.spatial.filter         = spatialfilter;
     settings.spectrogram.wlength    = wlength;
@@ -164,11 +219,12 @@ for fId = 1:NumFiles
     settings.spectrogram.freqgrid   = freqs;
     settings.modality.legend        = {'offline','online'};
     settings.modality.name          = modality;
-    settings.protocol.legend        = {'none', 'positive', 'full'};
+    settings.feedback.legend        = {'fake', 'positive', 'full', 'unknown'};
+    settings.feedback.name          = feedback;
+    settings.protocol.legend        = {'bci-calibration', 'bci-training', 'wheelchair-training', 'wheelchair-control', 'unknown'};
     settings.protocol.name          = protocol;
     settings.date                   = date;
     
-    [~, name] = fileparts(cfilename);
     sfilename = [savedir '/' name '.mat'];
     util_bdisp(['[out] - Saving psd in: ' sfilename]);
     save(sfilename, 'psd', 'freqs', 'events', 'settings', 'classifier'); 

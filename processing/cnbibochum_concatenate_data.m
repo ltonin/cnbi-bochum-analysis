@@ -1,6 +1,6 @@
 function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_data(files)
 
-    warning('off', 'backtrace');
+    %warning('off', 'backtrace');
     numfiles = length(files);
     
     % Getting size info to allocate memory and speedup the concatenation
@@ -8,10 +8,12 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_dat
     NumSamples = sum(datasize(1, :));
     NumFreqs   = unique(datasize(2, :));
     NumChans   = unique(datasize(3, :));
-
+    
     F  = nan(NumSamples, NumFreqs, NumChans);
     Rk = nan(NumSamples, 1);
     Mk = nan(NumSamples, 1);
+    Fk = nan(NumSamples, 1);
+    Pk = nan(NumSamples, 1);
     Dk = nan(NumSamples, 1);
     Wk = nan(NumSamples, 1);
     Nk = nan(NumSamples, 1);
@@ -40,34 +42,26 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_dat
         cstop    = cstart + datasize(1, fId) - 1;
         
         % Get run modality
-        cmodality_name = cdata.settings.modality.name;
-        switch(cmodality_name)
-            case 'offline'
-                cmodality = 0;
-            case 'online'
-                cmodality = 1;
-            otherwise
-                error(['Unknown modality: ' cmodality_name]);
+        if(strcmpi(cdata.settings.modality.name, 'unknown'))
+            error(['Unknown modality type: ' cdata.settings.modality.name]);
+        else
+            [~, cmodality] = intersect(cdata.settings.modality.legend, cdata.settings.modality.name);
+        end
+        
+        % Get run feebdack
+        if(strcmpi(cdata.settings.feedback.name, 'unknown'))
+            error(['Unknown feedback type: ' cdata.settings.feedback.name]);
+        else
+            [~, cfeedback] = intersect(cdata.settings.feedback.legend, cdata.settings.feedback.name);
         end
         
         % Get run protocol
-        cprotocol_name = cdata.settings.protocol.name;
-        switch(cprotocol_name)
-            case 'positive'     
-                cprotocol = 1;
-            case 'online'       % full feedback
-                cprotocol = 2;
-            case ''
-                cprotocol = 1;
-                warning('Empty protocol');
-            case 'none'
-                cprotocol = 1;
-                warning('Empty protocol');
-            otherwise
-                keyboard
-                error(['Unknown protocol: ' cprotocol_name]);
+        if(strcmpi(cdata.settings.protocol.name, 'unknown'))
+            error(['Unknown protocol type: ' cdata.settings.protocol.name]);
+        else
+            [~, cprotocol] = intersect(cdata.settings.protocol.legend, cdata.settings.protocol.name);
         end
-
+        
         % Get day id and label
         if strcmpi(cdata.settings.date, lastday) == false
             currday = currday + 1;
@@ -82,7 +76,6 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_dat
             lweek = cweek;
         end
 
-
         % Get month id
         cmonth = month(datetime(cdata.settings.date, 'InputFormat', 'yyyyMMdd'));
         if isequal(cmonth, lmonth) == false
@@ -90,14 +83,14 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_dat
             lmonth = cmonth;
         end
 
-
+        % Create labels
         Mk(cstart:cstop) = cmodality;
+        Fk(cstart:cstop) = cfeedback;
         Pk(cstart:cstop) = cprotocol;
         Rk(cstart:cstop) = runId;
         Dk(cstart:cstop) = currday;
         Wk(cstart:cstop) = cweekId;
         Nk(cstart:cstop) = cmonthId;
-
 
         % Concatenate events
         TYP = cat(1, TYP, cdata.events.TYP);
@@ -113,9 +106,11 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_dat
         csettings = cdata.settings;
         csettings.data.nsamples = nan;
         csettings.data.filename = nan;
-        csettings.date = nan;
-        csettings.protocol = nan;
+        csettings.date          = nan;
         csettings.modality.name = nan;
+        csettings.feedback.name = nan;
+        csettings.protocol.name = nan;
+        
         
         if(isempty(settings))
             settings = csettings;
@@ -139,14 +134,15 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_dat
     events.POS = POS;
     events.DUR = DUR;
     
-    labels.Mk = Mk;
-    labels.Pk = Pk;
-    labels.Rk = Rk;
-    labels.Dk = Dk;
-    labels.Wk = Wk;
-    labels.Nk = Nk;
+    labels.samples.Mk = Mk;
+    labels.samples.Fk = Fk;
+    labels.samples.Pk = Pk;
+    labels.samples.Rk = Rk;
+    labels.samples.Dk = Dk;
+    labels.samples.Wk = Wk;
+    labels.samples.Nk = Nk;
    
-    warning('on', 'backtrace');
+   % warning('on', 'backtrace');
 end
 
 function dsizes = get_data_size(filepaths)
