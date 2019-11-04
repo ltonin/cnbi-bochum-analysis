@@ -13,11 +13,7 @@ ClassEventId     = [773 771];
 CFeedbackEventId = 781;
 files = util_getfile3(datapath, '.mat', 'include', includepat, 'exclude', excludepat);
 nfiles = length(files);
-if(nfiles > 0)
-    util_bdisp(['[io] - Found ' num2str(nfiles) ' files with the inclusion/exclusion criteria: (' strjoin(includepat, ', ') ') / (' strjoin(excludepat, ', ') ')']);
-else
-    error(['[io] - No files found with the inclusion/exclusion criteria: (' strjoin(includepat, ', ') ') / (' strjoin(excludepat, ', ') ')']);
-end
+util_bdisp(['[io] - Found ' num2str(nfiles) ' files with the inclusion/exclusion criteria: (' strjoin(includepat, ', ') ') / (' strjoin(excludepat, ', ') ')']);
 
 % Create analysis directory
 util_mkdir('./', savedir);
@@ -86,6 +82,7 @@ for rId = 1:NumRuns
     end
     
     if(diff(sum(cindex_classes)) == 0)
+        Bk(cindex) = true;
         continue;
     end
     
@@ -123,11 +120,14 @@ rWk = zeros(NumRuns, 1);
 rNk = zeros(NumRuns, 1);
 for rId = 1:NumRuns
     cindex = Rk == Runs(rId);
+    
     if sum(cindex) == 0 
         warning(['skip run: ' num2str(rId)]);
+        
         continue;
     end
-    rfisher(:, rId) = proc_fisher2(U(cindex & Ck > 0, :, :), Ck(cindex & Ck > 0), nstd, false);
+    rfisher(:, rId) = proc_fisher2(U(cindex & Ck > 0, :, :), Ck(cindex & Ck > 0), nstd, true);
+    
     
     rMk(rId) = unique(Mk(cindex));
     rPk(rId) = unique(Pk(cindex));
