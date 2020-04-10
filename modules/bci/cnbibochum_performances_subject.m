@@ -4,10 +4,13 @@ subject = 'BOCH01';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
 excludepat  = {'guided', 'control'};
+% includepat  = {subject, 'mi', 'mi_bhbf'};
+% excludepat  = {'ciao'};
 spatialfilter = 'laplacian';
 artifactrej   = 'none'; % {'FORCe', 'none'}
 datapath    = ['analysis/' artifactrej '/psd/' spatialfilter '/'];
 savedir     = ['analysis/' artifactrej '/accuracy/' spatialfilter '/'];
+figdir      = 'figures/bci/performances/';
 
 ClassEventId     = [773 771];
 ClassNames       = {'both hands', 'both feet'};
@@ -20,6 +23,7 @@ util_bdisp(['[io] - Found ' num2str(nfiles) ' files with the inclusion/exclusion
 
 % Create analysis directory
 util_mkdir('./', savedir);
+util_mkdir('./', figdir);
 
 %% Concatenate data
 util_bdisp(['[io] - Importing ' num2str(nfiles) ' files from ' datapath ':']);
@@ -62,6 +66,7 @@ for trId = 1:NumTrials
 end
 
 Xk = events.TYP(events.TYP == CorrectEventId | events.TYP == WrongEventId);
+
 
 %% Generic Labels
 Runs    = unique(labels.samples.Rk);
@@ -173,3 +178,8 @@ title(['Performance over days (r=' num2str(DayCorr, '%4.3f') ', p<' num2str(DayP
 legend('Average', ClassNames{1}, ClassNames{2}, 'Location', 'SouthEast');
 
 sgtitle([subject '- Performances']);
+
+%% Saving figures
+filename1 = fullfile(figdir, [subject '_bci_performances.pdf']);
+util_bdisp(['[out] - Exporting bci performances to ' filename1]);
+fig_export(fig1, filename1, '-pdf');

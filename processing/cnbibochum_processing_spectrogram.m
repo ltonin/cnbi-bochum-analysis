@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH04';
+subject = 'BOCH02';
 
 includepat  = {subject, 'mi', 'mi_bhbf'};
 excludepat  = {};
@@ -225,7 +225,7 @@ for fId = 1:NumFiles
     settings.protocol.name          = protocol;
     settings.date                   = date;
     
-    sfilename = [savedir '/' name '.mat'];
+    sfilename = [savedir '/' pfilename '.mat'];
     util_bdisp(['[out] - Saving psd in: ' sfilename]);
     save(sfilename, 'psd', 'freqs', 'events', 'settings', 'classifier'); 
 end
