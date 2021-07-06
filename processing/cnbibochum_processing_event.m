@@ -1,9 +1,10 @@
 clearvars; clc;
 
-subject = 'BOCH02';
+subject = 'BOCH04';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'control'};
-excludepat  = {'20190121', '20190125', 'video', 'vodom'};
+%excludepat  = {'20190121', '20190125', 'video', 'vodom'};
+excludepat  = {'20190607', '20190617', 'video', 'vodom'};
 depthlevel  = 2;
 
 experiment  = 'mi_wheelchair';
@@ -102,6 +103,18 @@ function [DUR, offevents] = compute_event_duration(TYP, TIM, offevent)
             continue;
         end
         
+        nevtoffIdx = [];
+        for i = 1:length(cevtonIdx)
+            cIdx = find(cevtoffIdx >= cevtonIdx(i), 1, 'first');
+            
+            if( isempty(cIdx) )
+                warning(['Missing off event for: 0x' dec2hex(cevton) '|0x' dec2hex(cevtoff)]);
+                continue;
+            end
+            nevtoffIdx = cat(1, nevtoffIdx, cevtoffIdx(cIdx));
+        end
+        cevtoffIdx = nevtoffIdx;
+        
         % Check if there is equal number of cevtonIdx and coffIdx, otherwise
         % continue to the next event type (leave duration to 0)
         if( isequal(length(cevtonIdx), length(cevtoffIdx)) == false )
@@ -109,12 +122,13 @@ function [DUR, offevents] = compute_event_duration(TYP, TIM, offevent)
             continue;
         end
         
-        % Check if coffIdx come after conIdx
-        if ( isequal(sum((cevtoffIdx-cevtonIdx) > 0), length(cevtoffIdx)) == false )
-             warning(['Wrong order for events: 0x' dec2hex(cevton) '|0x' dec2hex(cevtoff)]);
-             keyboard
-             continue;
-        end
+        
+%         % Check if coffIdx come after conIdx
+%         if ( isequal(sum((cevtoffIdx-cevtonIdx) > 0), length(cevtoffIdx)) == false )
+%              warning(['Wrong order for events: 0x' dec2hex(cevton) '|0x' dec2hex(cevtoff)]);
+%              keyboard
+%              continue;
+%         end
         
         % Compute duration of the event
         DUR(cevtonIdx) = TIM(cevtoffIdx) - TIM(cevtonIdx);

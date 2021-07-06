@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH02';
+subject = 'BOCH04';
 
 includevod  = {subject, 'mi', 'mi_bhbf', 'control', 'vodom'};
 includenav  = {subject, 'mi', 'mi_bhbf', 'control', 'navigation'};
@@ -24,7 +24,7 @@ util_mkdir(pwd, savedir);
 SmoothOrder   = 1;
 SmoothBand    = 0.2;
 SmoothFreq    = 1;
-TopicPose     = '/rtabmap/localization_pose';
+TopicPose     = '/rtabmap/odom';
 TopicMap      = '/rtabmap/proj_map';
 TopicVelocity = '/cmd_vel';
 

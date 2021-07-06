@@ -114,8 +114,8 @@ function handles = cnbibochum_path_view_initialization(handles)
     handles.default.graphics.cursorsize  = 6;
     handles.default.graphics.cursorcolor = 'g';
     handles.default.graphics.segment.width = 2;
-    handles.default.save.path = './analysis/navigation/waypoints/';
-    handles.default.load.path = './analysis/navigation/motion/';
+    handles.default.save.path = './analysis/navigation/new/waypoints/';
+    handles.default.load.path = './analysis/navigation/new/processed/';
     handles.isvalid = false;
     
 end

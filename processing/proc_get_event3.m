@@ -64,10 +64,12 @@ function [evtvec, evtstr] = proc_get_event3(evt, T, POS, TYP, DUR)
         ctyp = typ_s(eId);
         cdur = dur_s(eId);
         
+        
         if isnan(cdur)
             cdur = 0;
         end
            
+        
         
         cstart = cpos;
         tstop = T(cpos) + cdur;

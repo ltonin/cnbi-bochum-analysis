@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH02';
+subject = 'BOCH04';
 motion_m  = 'SIM01';
 
 include = {'mi', 'mi_bhbf', 'motion'};
@@ -36,7 +36,8 @@ Vx = motion.Vx;
 Rk = labels.Rk;
 Dk = labels.Dk;
 Ck = filter_commands(T, Ck, 1.5);
-
+Xk = cnbibochum_get_data_validity(subject, Rk, Wk);
+map = map(1);
 % Manual
 Wk_m = proc_get_event3(Waypoints,     motion_m.T, events_m.POS, events_m.TYP, events_m.DUR);
 Tk_m = proc_get_event3(StartEvent,    motion_m.T, events_m.POS, events_m.TYP, events_m.DUR);
@@ -44,6 +45,7 @@ Ck_m = proc_get_event3(CommandEvents, motion_m.T, events_m.POS, events_m.TYP, ev
 P_m  = motion_m.P;
 T_m  = motion_m.T;
 Rk_m = labels_m.Rk;
+Xk_m = cnbibochum_get_data_validity('SIM01', Rk_m, Wk_m);
 
 % Get data information 
 Runs = unique(Rk);
@@ -75,7 +77,7 @@ Twj_ref = cellfun(@(m) mean(m, 3), Twj_m, 'UniformOutput', false);
 WpFrechet = nan(NumWaypoints, NumRuns);
 for wId = 1:NumWaypoints
     for rId = 1:NumRuns
-        cindex = Rk == Runs(rId) & Tk > 0 & Wk == Waypoints(wId);
+        cindex = Rk == Runs(rId) & Tk > 0 & Wk == Waypoints(wId) & Xk == true;
         if sum(cindex) <= 1
             continue;
         end

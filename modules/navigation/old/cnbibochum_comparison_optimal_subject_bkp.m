@@ -36,6 +36,7 @@ Vx = motion.Vx;
 Rk = labels.Rk;
 Dk = labels.Dk;
 Ck = filter_commands(T, Ck, 1.5);
+Xk = cnbibochum_get_data_validity(subject, Rk, Wk);
 
 % Manual
 Wk_m = proc_get_event3(Waypoints,     motion_m.T, events_m.POS, events_m.TYP, events_m.DUR);
@@ -45,6 +46,7 @@ P_m  = motion_m.P;
 T_m  = motion_m.T;
 Vx_m = motion_m.Vx;
 Rk_m = labels_m.Rk;
+Xk_m = cnbibochum_get_data_validity('SIM01', Rk_m, Wk_m);
 
 % Get data information 
 Runs = unique(Rk);
@@ -65,13 +67,13 @@ for rId = 1:NumRuns_m
 end
 
 %% Compute correction of duration of simulation runs (based on velocity)
-L = compute_path_length(P, Rk, Tk);
-D = compute_path_duration(T, Rk, Tk);
-V = compute_path_velocity(Vx, Rk, Tk);
+L = compute_path_length(P, Rk, Tk, Xk);
+D = compute_path_duration(T, Rk, Tk, Xk);
+V = compute_path_velocity(Vx, Rk, Tk, Xk);
 
-L_m = compute_path_length(P_m, Rk_m, Tk_m);
-D_m = compute_path_duration(T_m, Rk_m, Tk_m);
-V_m = compute_path_velocity(Vx_m, Rk_m, Tk_m);
+L_m = compute_path_length(P_m, Rk_m, Tk_m, Xk_m);
+D_m = compute_path_duration(T_m, Rk_m, Tk_m, Xk_m);
+V_m = compute_path_velocity(Vx_m, Rk_m, Tk_m, Xk_m);
 
 WcVx     = L./D;
 CmdVelVx = V;
@@ -82,15 +84,15 @@ CmdVelVxSim = V_m;
 RatioVx = mean(WcVx./mean(WcVxSim));
 
 %% Compute waypoint duration
-DurationWp = compute_waypoint_duration(T, Wk, Rk, Tk);
-DurationWp_raw = compute_waypoint_duration(T_m, Wk_m, Rk_m, Tk_m);
+DurationWp = compute_waypoint_duration(T, Wk, Rk, Tk, Xk);
+DurationWp_raw = compute_waypoint_duration(T_m, Wk_m, Rk_m, Tk_m, Xk_m);
 
 % Correction duration for simulation
 DurationWp_m = DurationWp_raw - DurationWp_raw.*(RatioVx - 1);
 
 %% Compute waypoint commands
-Commands   = compute_waypoint_commands(Ck, Wk, Rk);
-Commands_m = compute_waypoint_commands(Ck_m, Wk_m, Rk_m);
+Commands   = compute_waypoint_commands(Ck, Wk, Rk, Xk);
+Commands_m = compute_waypoint_commands(Ck_m, Wk_m, Rk_m, Xk_m);
 
 %% Figure
 
@@ -101,7 +103,7 @@ NumCols = 2;
 
 subplot(NumRows, NumCols, 1);
 boxcolors = colororder;
-boxplot(100*(DurationWp./DurationWp_m)', 'labels', [repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)] ,'colors', boxcolors(1:NumWaypoints, :))
+boxplot(100*(DurationWp./repmat(mean(DurationWp_m, 2), [1 NumRuns]))', 'labels', [repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)] ,'colors', boxcolors(1:NumWaypoints, :))
 grid on;
 xlabel('waypoint');
 plot_hline(100, 'k--');
@@ -109,7 +111,7 @@ ylabel('[%]');
 title([subject '| Distribution of duration ratios: 100*(BCI/Manual)']);
 
 subplot(NumRows, NumCols, 3);
-bar(100*(DurationWp./DurationWp_m)', 'grouped');
+bar(100*(DurationWp./repmat(mean(DurationWp_m, 2), [1 NumRuns]))', 'grouped');
 % plot(100*(DurationWp./DurationWp_m)', 'o-');
 plot_hline(100, 'k--');
 daychanges = find(diff(Dk))+1;
@@ -124,7 +126,7 @@ legend([repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)])
 
 subplot(NumRows, NumCols, 2);
 boxcolors = colororder;
-boxplot(100*squeeze(nansum(Commands)./nansum(Commands_m))', 'labels', [repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)] ,'colors', boxcolors(1:NumWaypoints, :));
+boxplot(100*squeeze(nansum(Commands)./nansum(repmat(nanmean(Commands_m, 3), [1 1 NumRuns])))', 'labels', [repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)] ,'colors', boxcolors(1:NumWaypoints, :));
 grid on;
 plot_hline(100, 'k--');
 xlabel('waypoint');
@@ -132,13 +134,13 @@ ylabel('[#]');
 title([subject '| Distribution of command ratios: 100*(BCI/Manual)']);
 
 subplot(NumRows, NumCols, 4);
-h = bar(100*squeeze(nansum(Commands)./nansum(Commands_m))', 'grouped');
+h = bar(100*squeeze(nansum(Commands)./nansum(repmat(nanmean(Commands_m, 3), [1 1 NumRuns])))', 'grouped');
 % plot(100*squeeze(sum(Commands)./sum(Commands_m))', 'o-');
 plot_hline(100, 'k--');
-set(gca, 'XTickLabel', [repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)]);
+% set(gca, 'XTickLabel', [repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)]);
 grid on;
 ylabel('[#]')
-xlabel('waypoint');
+xlabel('run');
 title([subject ' | Ratio BCI/manual number commands per run']);
 legend([repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)])
 
@@ -333,34 +335,34 @@ function Twj = reshape_wp_trajectories(P, Wk, Rk, Tk)
     
 end
 
-function L = compute_path_length(P, Rk, Tk)
+function L = compute_path_length(P, Rk, Tk, Xk)
     Runs    = unique(Rk);
     NumRuns = length(Runs);
     L = nan(NumRuns, 1);
 
     for rId = 1:NumRuns
-        cindex = Rk == Runs(rId) & Tk > 0;
+        cindex = Rk == Runs(rId) & Tk > 0 & Xk == true;
         cpath = P(cindex, :);
 
         L(rId) = sum(sqrt(sum((cpath(2:end, :) - cpath(1:end-1, :)).^2, 2)));
     end
 end
 
-function D = compute_path_duration(T, Rk, Tk)
+function D = compute_path_duration(T, Rk, Tk, Xk)
     
     Runs    = unique(Rk);
     NumRuns = length(Runs);
     D = nan(NumRuns, 1);
 
     for rId = 1:NumRuns
-        cindex = Rk == Runs(rId) & Tk > 0;
+        cindex = Rk == Runs(rId) & Tk > 0 & Xk == true;
         ctime = T(cindex);
 
         D(rId) = ctime(end) - ctime(1);
     end
 end
 
-function D = compute_waypoint_duration(T, Wk, Rk, Tk)
+function D = compute_waypoint_duration(T, Wk, Rk, Tk, Xk)
     
     Waypoints    = setdiff(unique(Wk), 0);
     NumWaypoints = length(Waypoints);
@@ -371,7 +373,7 @@ function D = compute_waypoint_duration(T, Wk, Rk, Tk)
 
     for rId = 1:NumRuns
         for wId = 1:NumWaypoints
-            cindex = Rk == Runs(rId) & Wk == Waypoints(wId) & Tk > 0;
+            cindex = Rk == Runs(rId) & Wk == Waypoints(wId) & Tk > 0 & Xk == true;
             cstart = find(cindex, 1, 'first');
             cstop  = find(cindex, 1, 'last');
             if (isequal(cstart, cstop))
@@ -386,21 +388,21 @@ function D = compute_waypoint_duration(T, Wk, Rk, Tk)
 
 end
 
-function V = compute_path_velocity(Vx, Rk, Tk)
+function V = compute_path_velocity(Vx, Rk, Tk, Xk)
     
     Runs    = unique(Rk);
     NumRuns = length(Runs);
     V = nan(NumRuns, 1);
 
     for rId = 1:NumRuns
-        cindex = Rk == Runs(rId) & Tk > 0;
+        cindex = Rk == Runs(rId) & Tk > 0 & Xk == true;
         cvelocities = Vx(cindex);
 
         V(rId) = mean(cvelocities);
     end
 end
 
-function C = compute_waypoint_commands(Ck, Wk, Rk)
+function C = compute_waypoint_commands(Ck, Wk, Rk, Xk)
     Runs = unique(Rk);
     NumRuns = length(Runs);
     Commands = setdiff(unique(Ck), 0);
@@ -411,7 +413,7 @@ function C = compute_waypoint_commands(Ck, Wk, Rk)
     C = nan(NumCommands, NumWaypoints, NumRuns);
     for rId = 1:NumRuns
         for wId = 1:NumWaypoints
-            cindex = Rk == Runs(rId) & Wk == Waypoints(wId);
+            cindex = Rk == Runs(rId) & Wk == Waypoints(wId) & Xk == true;
             if sum(cindex) <= 1
                 continue;
             end

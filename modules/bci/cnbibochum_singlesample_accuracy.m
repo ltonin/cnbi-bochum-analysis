@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH05';
+subject = 'BOCH01';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
 excludepat  = {'guided', 'control'};
@@ -97,20 +97,20 @@ for rId = 1:NumRuns
     
 end
 
-% %% Apply classifier
-% util_bdisp('[proc] - Applying classifier (all runs together)');
-% pp = 0.5*ones(NumSamples, 2);
-% for sId = 1:NumSamples
-%     util_disp_progress(sId, NumSamples, '            ');
-%   
-%     runId = labels.samples.Rk(sId);
-%     
-%     % Importing feature indexes used by the classifier
-%     FeatureIdx = proc_cnbifeature2bin(classifiers(runId).features, SrcFreqs);   
-% 
-%     % Applying the classifier
-%     [~, pp(sId, :)] = gauClassifier(classifiers(runId).gau.M, classifiers(runId).gau.C, P(sId, FeatureIdx));
-% end
+%% Apply classifier
+util_bdisp('[proc] - Applying classifier (all runs together)');
+pp = 0.5*ones(NumSamples, 2);
+for sId = 1:NumSamples
+    util_disp_progress(sId, NumSamples, '            ');
+  
+    runId = labels.samples.Rk(sId);
+    
+    % Importing feature indexes used by the classifier
+    FeatureIdx = proc_cnbifeature2bin(classifiers(runId).features, SrcFreqs);   
+
+    % Applying the classifier
+    [~, pp(sId, :)] = gauClassifier(classifiers(runId).gau.M, classifiers(runId).gau.C, P(sId, FeatureIdx));
+end
 
 
 %% Computing single sample accuracy for each online
@@ -179,10 +179,10 @@ for rId = 1:NumRuns
 end
 
 %% Saving
-% probabilities.raw = pp;
-% labels.samples.Bk = Bk;
-% labels.samples.Ck = Ck;
-% 
-% savepath = [savedir '/' subject '_probabilities_' settings.spatial.filter '.mat'];
-% util_bdisp(['[out] - Saving bci online probabilities in ' savepath]);
-% save(savepath, 'probabilities', 'labels', 'classifiers', 'settings');
+probabilities.raw = pp;
+labels.samples.Bk = Bk;
+labels.samples.Ck = Ck;
+
+savepath = [savedir '/' subject '_probabilities_' settings.spatial.filter '.mat'];
+util_bdisp(['[out] - Saving bci online probabilities in ' savepath]);
+save(savepath, 'probabilities', 'labels', 'classifiers', 'settings');

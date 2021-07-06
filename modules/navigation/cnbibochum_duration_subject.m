@@ -1,43 +1,53 @@
 clearvars; clc;
 
-subject = 'RND01';
+subject = 'BOCH02';
 
-include = {subject, 'mi', 'mi_bhbf', 'motion'};
+include = {subject, 'mi', 'mi_bhbf', 'processed'};
 excludepat  = {};
-depthlevel  = 2;
+depthlevel  = 3;
 
 datapath  = 'analysis/navigation/';
-eventpath = 'analysis/navigation/waypoints/';
-figpath   = './figures/parkour/';
+eventpath = 'analysis/navigation/new/waypoints/';
+figpath   = './figures/parkour/new/';
+do_save   = true;
 
 files = util_getfile3(datapath, '.mat', 'include', include, 'exclude', excludepat, 'level', depthlevel);
 NumFiles = length(files);
 
+% Create/Check for figures
+util_mkdir(pwd, figpath);
+
+% Default Waypoints values
 StartEvent   = 500;
 Waypoints    = [501 502 503 504];
 NumWaypoints = length(Waypoints);
 
 %% Concatenate files
-[motion, map, events, labels] = cnbibochum_concatenate_motion_data(files, eventpath);
-nsamples = length(motion.T);
-Wk = proc_get_event3(Waypoints, motion.T, events.POS, events.TYP, events.DUR);
-Tk = proc_get_event3(500, motion.T, events.POS, events.TYP, events.DUR);
-P = motion.P;
-T = motion.T;
-Vx = motion.Vx;
-Rk = labels.Rk;
-Dk = labels.Dk;
+[nav, map, events, labels] = cnbibochum_navigation_concatenate_data(files, eventpath);
+
+% Extract data and events
+Wk  = proc_get_event3(Waypoints, nav.T, events.POS, events.TYP, events.DUR);
+Tk  = proc_get_event3(500, nav.T, events.POS, events.TYP, events.DUR);
+P   = nav.P;
+T   = nav.T;
+Vx  = nav.Vx;
+Rk  = labels.Rk;
+Dk  = labels.Dk;
+Xk  = cnbibochum_get_data_validity(subject, Rk, Wk);
+Nk  = support_get_navigation_labels(events, Rk);
+map = map(1);
 
 Runs = unique(Rk);
 NumRuns = length(Runs);
 Days = unique(Dk);
 NumDays = length(Days);
 
+%% Duration per Waypoint
 DurPerWp = nan(NumWaypoints, NumRuns);
 
 for rId = 1:NumRuns
     for wId = 1:NumWaypoints
-        cindex = Rk == Runs(rId) & Wk == Waypoints(wId);
+        cindex = Rk == Runs(rId) & Wk == Waypoints(wId) & Xk == true;
         cstart = find(cindex, 1, 'first');
         cstop  = find(cindex, 1, 'last');
         if (isequal(cstart, cstop))
@@ -45,27 +55,36 @@ for rId = 1:NumRuns
         else
             cdur = T(cstop) - T(cstart);
         end
+        
+        [~, d2] = support_conditional_duration(T(cindex), Nk(cindex));
         DurPerWp(wId, rId) = cdur;
     end
 end
 
-% Th = 0.2;
-Th = 0.5;
+%% Holding time per run
 HoldPerRun = nan(NumRuns, 1);
 HoldPerRunIdx = cell(NumRuns, 1);
 for rId = 1:NumRuns
     cindex = Rk == Runs(rId) & Tk == 500;
-    cvx = Vx(cindex);
-    cvx(cvx < 0) = nan;
-    nvx = cvx./max(cvx);
     
-    hIdx = find(nvx < Th);
-    ctime = T(hIdx+1) - T(hIdx);
-    ttime = T(find(cindex, 1, 'last')) - T(find(cindex, 1, 'first'));
-%     HoldPerRun(rId) = sum(nvx < Th)./length(nvx);
-    HoldPerRun(rId) = 100*nansum(ctime)./ttime;
-    HoldPerRunIdx{rId} = hIdx;
+    cT  = T(cindex);
+    cNk = Nk(cindex);
+    cVx = Vx(cindex);
     
+    % remove velocity less than 0
+    cVx(cVx < 0) = nan;
+    
+    % Normalize velocity
+    nvx = rescale(cVx);
+    
+    % Velocity value greater than mean/2
+    cLk = ~(nvx < mean(nvx)./2);
+    
+    [cruntime, choldtime] = support_conditional_duration(cT, cNk & cLk);
+    
+    
+    HoldPerRun(rId) = 100*nansum(choldtime)./cruntime;
+    HoldPerRunIdx{rId} = find(~(cNk & cLk));
 end
 
 
@@ -82,12 +101,12 @@ boxplot((DurPerWp)', 'labels', [repmat('wp', NumWaypoints, 1) num2str(Waypoints'
 grid on;
 xlabel('waypoint');
 ylabel('[s]');
-ylim([30 150]);
+ylim([30 190]);
 title([subject '| Distribution of path duration per waypoint']);
 
 subplot(NumRows, NumCols, [5 6]);
 bar(DurPerWp', 'stack');
-ylim([0 410]);
+ylim([0 500]);
 daychanges = find(diff(Dk))+1;
 for dId = 1:length(daychanges)
     plot_vline(Rk(daychanges(dId))-0.5, 'k');
@@ -101,16 +120,17 @@ legend([repmat('wp', NumWaypoints, 1) num2str(Waypoints' - StartEvent)])
 
 subplot(NumRows, NumCols, [9 10])
 plot(1:NumRuns, HoldPerRun, 'o-');
-ylim([0 20]);
+ylim([0 100]);
 for dId = 1:length(daychanges)
     plot_vline(Rk(daychanges(dId))-0.5, 'k');
 end
+set(gca, 'XTick', 1:NumRuns);
 xlim([1 NumRuns]);
 grid on;
 xlabel('run');
 ylabel('[%]');
 
-title([subject ' | Time with reduced speed (vx<' num2str(100*Th) '%)']);
+title([subject ' | Time with reduced speed (vx<50%)']);
 
 subplot(NumRows, NumCols, [3 4 7 8 11 12])
 cnbibochum_show_map(map.info.x, map.info.y, map.data);
@@ -120,29 +140,86 @@ for rId = 1:NumRuns
     plot(cpoint(:, 2), cpoint(:, 1), 'o');
     hold off;
 end
-title([subject ' | Positions with reduced speed (vx<' num2str(100*Th) '%)']);
-legend([repmat('run ', NumRuns, 1) num2str((1:NumRuns)')]);
+title([subject ' | Positions with reduced speed (vx<50%)']);
+HoldingRuns = find(cellfun(@(m) isempty(m) == false, HoldPerRunIdx));
+legend([repmat('run ', length(HoldingRuns), 1) num2str((HoldingRuns))]);
 
 
 %% Saving figure
+
+if do_save == false
+    return
+end
+
 figname = fullfile(figpath, [subject '_parkour_duration.pdf']);
 util_disp(['[out] - Saving figure in: ' figname]);
 fig_export(fig1, figname, '-pdf', 'landscape', '-fillpage');
 
 
-%% %%%%%%%%%%%%%%%%%%%%% Functions %%%%%%%%%%%%%%%%%%%%%%%%
-function eventstr = cnbibochum_util_import_event(reffilename, rootpath, subfolder)
+%% Support functions
 
-    file_identifier = regexp(reffilename, '(\w*\.\d*\.\d*)\.\w*', 'tokens');
-    evtfile = util_getfile3(rootpath, '.mat', 'include', [file_identifier{1} subfolder], 'level', 3);
+function Nk = support_get_navigation_labels(events, Rk)
+
+    nsamples = length(Rk);
+    Runs = unique(Rk);
+    NumRuns = length(Runs);
     
-    if length(evtfile) > 1
-        error(['Cannot find unique event file in: ' fullfile(rootpath, subfolder)]);
-    elseif isempty(evtfile)
-        error(['Cannot find any event file in: ' fullfile(rootpath, subfolder)]);
+    Nk = false(nsamples, 1);
+    
+    for rId = 1:NumRuns
+        cstart = find(Rk == Runs(rId), 1, 'first');
+        cstop  = find(Rk == Runs(rId), 1, 'last');
+        
+        cindex = events.POS >= cstart & events.POS <= cstop & (events.TYP == 1 | events.TYP == 2 | events.TYP == 3);
+        evtTYP = events.TYP(cindex);
+        evtPOS = events.POS(cindex);
+        evtLBL = events.LBL(cindex);
+        
+        evt_pos_nav = evtPOS(evtTYP == 2);
+        evt_pos_oth = evtPOS(evtTYP ~= 2);
+        
+        for nId = 1:length(evt_pos_nav)
+            cnav_pos_start = evt_pos_nav(nId);
+            cnav_pos_stop_idx  = find(evt_pos_oth > cnav_pos_start, 1, 'first');
+            
+            if( isempty(cnav_pos_stop_idx) == true)
+                cnav_pos_stop = cstop;
+            else
+                cnav_pos_stop = evt_pos_oth(cnav_pos_stop_idx);
+            end
+            
+            Nk(cnav_pos_start:cnav_pos_stop) = true;
+            
+        end
+    end
+
+end
+
+function [d1, d2] = support_conditional_duration(T, Nk)
+
+    d1 = 0;
+    d2 = 0;
+
+    cstart = find(diff([0; Nk; 0]) == 1);
+    cstop  = find(diff([0; Nk; 0]) == -1);
+    if(isempty(cstop) == false)
+        cstop(end) = cstop(end) -1;
     end
     
-    cevents = load(evtfile{1});
+    if(isequal(length(cstart), length(cstop)) == false)
+        error('check length');
+    end
     
-    eventstr = cevents.event;
+    if(isempty(cstart))
+        return;
+    end
+    
+    d1 = 0;
+    for tId = 1:length(cstart)
+        d1 = d1 + T(cstop(tId)) - T(cstart(tId));
+    end
+    
+    d2 = (T(end) - T(1)) - d1;
+
 end
+

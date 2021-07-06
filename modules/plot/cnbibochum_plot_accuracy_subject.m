@@ -1,6 +1,6 @@
 clearvars; clc; close all;
 
-subject = 'BOCH04';
+subject = 'BOCH01';
 
 spatialfilter = 'laplacian';
 artifactrej   = 'none'; % {'FORCe', 'none'}

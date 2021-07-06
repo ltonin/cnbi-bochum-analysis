@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH02';
+subject = 'BOCH05';
 
 includepat  = {subject, 'mi', 'mi_bhbf'};
 excludepat  = {};
@@ -14,7 +14,7 @@ ForceWinLength    = 1.0;
 chanlocs32        = 'antneuro32.mat';
 spatialfilter     = 'laplacian';
 savedir           = ['analysis/' artifactrej '/psd/' spatialfilter '/'];
-recompute         = true;
+recompute         = false;
 
 
 %% Processing parameters

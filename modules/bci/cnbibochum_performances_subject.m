@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH01';
+subject = 'BOCH05';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
 excludepat  = {'guided', 'control'};
@@ -9,7 +9,7 @@ excludepat  = {'guided', 'control'};
 spatialfilter = 'laplacian';
 artifactrej   = 'none'; % {'FORCe', 'none'}
 datapath    = ['analysis/' artifactrej '/psd/' spatialfilter '/'];
-savedir     = ['analysis/' artifactrej '/accuracy/' spatialfilter '/'];
+savedir     = ['analysis/' artifactrej '/performances/' spatialfilter '/'];
 figdir      = 'figures/bci/performances/';
 
 ClassEventId     = [773 771];
@@ -67,6 +67,20 @@ end
 
 Xk = events.TYP(events.TYP == CorrectEventId | events.TYP == WrongEventId);
 
+%% Determine average trial per session and average run per session
+Days = unique(Dk);
+NumDays = max(Days);
+TrialsPerDay = nan(NumDays, 1);
+RunsPerDay = nan(NumDays, 1);
+
+for dId = 1:NumDays
+    cindex = Dk == Days(dId);
+    TrialsPerDay(dId) = length(Ck(cindex));
+    RunsPerDay(dId) = length(unique(Rk(cindex)));
+end
+
+util_bdisp(['Saving trial and runs info in: ' subject '_trial_run_info.mat']);
+save([savedir subject '_trial_run_info.mat'], 'TrialsPerDay', 'RunsPerDay');
 
 %% Generic Labels
 Runs    = unique(labels.samples.Rk);
@@ -111,7 +125,8 @@ DayPerf      = nan(NumDays, 1);
 DayPerfClass = nan(NumDays, NumClasses);
 
 for dId = 1:NumDays
-    cindex = Dk == Days(dId) & Rmk == false;
+    %cindex = Dk == Days(dId) & Rmk == false;
+    cindex = Dk == Days(dId);
     cntrials = sum(cindex);
     
     DayPerf(dId) = 100*sum(Xk(cindex) == CorrectEventId)./cntrials;
@@ -140,6 +155,19 @@ for cId = 1:NumClasses
     [DayCorrClass(cId), DayPValClass(cId)] = corr((1:NumDays)', DayPerfClass(:, cId), 'rows', 'pairwise');
 end
 
+%% Saving data
+
+performances.total.run   = RunPerf;
+performances.total.day   = DayPerf;
+performances.class.run   = RunPerfClass;
+performances.class.day   = DayPerfClass;
+performances.labels      = labels;
+performances.classifiers = classifiers;
+
+
+savepath = [savedir '/' subject '_performances_' settings.spatial.filter '.mat'];
+util_bdisp(['[out] - Saving bci online performances in ' savepath]);
+save(savepath, 'performances');
 
 %% Plotting performances per run and per day
 fig1 = figure;
@@ -178,6 +206,7 @@ title(['Performance over days (r=' num2str(DayCorr, '%4.3f') ', p<' num2str(DayP
 legend('Average', ClassNames{1}, ClassNames{2}, 'Location', 'SouthEast');
 
 sgtitle([subject '- Performances']);
+
 
 %% Saving figures
 filename1 = fullfile(figdir, [subject '_bci_performances.pdf']);

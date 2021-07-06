@@ -1,9 +1,10 @@
-function [motion, map, events, labels] = cnbibochum_concatenate_motion_data(files, eventpath)
+function [motion, map, events, labels] = cnbibochum_navigation_concatenate_data(files, eventpath)
 
 
     numfiles = length(files);
     
-    P = []; Vx = []; Vz = []; R = []; T = []; map = [];
+    P = []; Ox = []; Oy = []; Oz = []; rOx = []; rOy = []; rOz = [];
+    Vx = []; Vz = []; R = []; T = []; map = [];
     POS = []; TYP= []; DUR = []; TIM = []; LBL = []; ERR = [];
     Mk = []; Rk = []; Dk = [];
     pdate = '';
@@ -22,7 +23,7 @@ function [motion, map, events, labels] = cnbibochum_concatenate_motion_data(file
         wpevents = cnbibochum_events_align(mdata.T, ievents);
         
         % Merge events
-        mevents = cnbibochum_util_event_merge(mdata.event, wpevents);
+        mevents = cnbibochum_util_event_merge(mdata.events, wpevents);
         
         % Concatenate events
         POS = cat(1, POS, mevents.POS + length(T)+1);
@@ -52,17 +53,23 @@ function [motion, map, events, labels] = cnbibochum_concatenate_motion_data(file
         Vx = cat(1, Vx, mdata.velocity.vx);
         Vz = cat(1, Vz, mdata.velocity.vz);
         R  = cat(1, R,  mdata.pose.xy);
+        rOx = cat(1, rOx, mdata.orientation.x);
+        rOy = cat(1, rOy, mdata.orientation.y);
+        rOz = cat(1, rOz, mdata.orientation.z);
+        Ox = cat(1, Ox, mdata.sorientation.x);
+        Oy = cat(1, Oy, mdata.sorientation.y);
+        Oz = cat(1, Oz, mdata.sorientation.z);
         T  = cat(1, T,  mdata.T);
-        
-        
- 
-        
-       
-        
         
     end
     
     motion.P  = P;
+    motion.Ox = Ox;
+    motion.Oy = Oy;
+    motion.Oz = Oz;
+    motion.rOx = rOx;
+    motion.rOy = rOy;
+    motion.rOz = rOz;
     motion.Vx = Vx;
     motion.Vz = Vz;
     motion.R  = R;
