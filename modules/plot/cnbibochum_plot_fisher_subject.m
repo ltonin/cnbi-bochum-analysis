@@ -16,6 +16,8 @@ util_mkdir('./', figdir);
 util_bdisp(['[io] - Importing fisher score data for subject ' subject ' from ' datapath]);
 data = load([datapath pattern]);
 
+Days        = unique(data.labels.run.Dk);
+NumDays     = length(Days);
 Months      = unique(data.labels.run.Nk);
 NumMonths   = length(Months);
 Weeks       = unique(data.labels.run.Wk);
@@ -62,8 +64,8 @@ ReqRangeFreq  = [8:12 18:28];
 
 
 %% Select runs to be removed
-[Rmk, RemRuns] = cnbibochum_exclude_runs(subject, NumRuns);
-
+%[Rmk, RemRuns] = cnbibochum_exclude_runs(subject, NumRuns);
+Rmk = false(NumRuns, 1);
 
 %% Computing the sum of the fisher score for the selected features per run
 sfisher = nan(NumRuns, 1);
@@ -85,6 +87,7 @@ for rId = 1:NumRuns
    sfisher(rId) = nanmean(cfisher(cfeatureIdx));
 end
 
+
 %% Computing the sum of the fisher score for the medial and lateral channels (in alpha/beta)
 mlfisher = nan(2, NumRuns);
 
@@ -102,6 +105,23 @@ end
 %% Reshaping fisher scores and extract freqs and channels
 rfisher = reshape(data.fisher.run, NumSrcFreq, NumSrcChan, NumRuns);
 %rfisher = rfisher(SelFreqIds, SelChanIds, :);
+
+%% Computing the sum of the fisher score for the medial and lateral channels (in alpha/beta) per day
+dmlfisher = nan(2, NumDays);
+
+for dId = 1:NumDays
+   index = data.labels.run.Dk == Days(dId) & Rmk == false;
+
+   % average fisher per day
+   cmfisher = mean(data.fisher.run(:, index), 2);
+
+   cfisher = reshape(cmfisher, NumSrcFreq, NumSrcChan);
+   cfisher_m = nanmean(nanmean(cfisher(RangeFreqIds, MedChanIds)));
+   cfisher_l = nanmean(nanmean(cfisher(RangeFreqIds, LatChanIds)));
+   
+   dmlfisher(:, dId) = [cfisher_m cfisher_l];
+end
+
 
 
 %% Plot DP maps per week

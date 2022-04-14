@@ -1,9 +1,9 @@
 clearvars; clc;
 
-subject = 'BOCH01';
+subject = 'BOCH02';
 
 includepat  = {subject, 'mi', 'mi_bhbf'};
-excludepat  = {'guided', 'control'};
+excludepat  = {'control', 'offline'};
 spatialfilter = 'laplacian';
 artifactrej   = 'none'; % {'FORCe', 'none'}
 datapath    = ['analysis/' artifactrej '/psd/' spatialfilter '/'];
@@ -23,6 +23,7 @@ util_bdisp(['[io] - Importing ' num2str(nfiles) ' files from ' datapath ':']);
 [F, events, labels, classifiers, settings] = cnbibochum_concatenate_data(files);
 
 U = log(F);
+
 NumSamples = size(U, 1);
 NumChans   = size(U, 3);
 NumFreqs   = size(U, 2);
@@ -45,11 +46,12 @@ Fk = zeros(NumSamples, 1);
 Pk = zeros(NumSamples, 1);
 
 for trId = 1:NumTrials
+    %cstartCF = TrialEvent.POS(trId);
     cstart = TrialEvent.POS(trId);
     cstop  = cstart + TrialEvent.DUR(trId) - 1;
     cclass = ClassEvent.TYP(trId);
     Ck(cstart:cstop) = cclass;
-    Rk(cstart:cstop) = unique(labels.samples.Rk(cstart:cstop));
+    Rk(cstart:cstop) = min(unique(labels.samples.Rk(cstart:cstop)));
     Dk(cstart:cstop) = unique(labels.samples.Dk(cstart:cstop));
     Wk(cstart:cstop) = unique(labels.samples.Wk(cstart:cstop));
     Nk(cstart:cstop) = unique(labels.samples.Nk(cstart:cstop));
@@ -126,7 +128,7 @@ for rId = 1:NumRuns
         
         continue;
     end
-    rfisher(:, rId) = proc_fisher2(U(cindex & Ck > 0, :, :), Ck(cindex & Ck > 0), nstd, true);
+    rfisher(:, rId) = proc_fisher2(U(cindex & Ck > 0, :, :), Ck(cindex & Ck > 0), nstd, false);
     
     
     rMk(rId) = unique(Mk(cindex));
@@ -137,9 +139,41 @@ for rId = 1:NumRuns
     rNk(rId) = unique(Nk(cindex));
 end
 
+
+%% Computing fisher score per day
+util_bdisp('[proc] - Computing fisher score per day');
+nstd = [];
+
+dfisher = nan(NumChans*NumFreqs, NumDays);
+dMk = zeros(NumDays, 1);
+dPk = zeros(NumDays, 1);
+dFk = zeros(NumDays, 1);
+dDk = zeros(NumDays, 1);
+dWk = zeros(NumDays, 1);
+dNk = zeros(NumDays, 1);
+for dId = 1:NumDays
+    cindex = Dk == Days(dId);
+    
+    if sum(cindex) == 0 
+        warning(['skip run: ' num2str(rId)]);
+        
+        continue;
+    end
+    dfisher(:, dId) = proc_fisher2(U(cindex & Ck > 0, :, :), Ck(cindex & Ck > 0), nstd, true);
+    
+    
+%     dMk(dId) = unique(Mk(cindex));
+%     dPk(dId) = unique(Pk(cindex));
+%     dFk(dId) = unique(Fk(cindex));
+    dDk(dId) = unique(Dk(cindex));
+    dWk(dId) = unique(Wk(cindex));
+    dNk(dId) = unique(Nk(cindex));
+end
+
 %% Saving files
 
 fisher.run   = rfisher;
+fisher.day   = dfisher;
 
 % Samples labels
 labels = [];
@@ -161,6 +195,13 @@ labels.run.Pk = rPk;
 labels.run.Dk = rDk;
 labels.run.Wk = rWk;
 labels.run.Nk = rNk;
+
+labels.day.Mk = rMk;
+labels.day.Fk = rFk;
+labels.day.Pk = rPk;
+labels.day.Dk = rDk;
+labels.day.Wk = rWk;
+labels.day.Nk = rNk;
 
 savepath = [savedir '/' subject '_fisher_' settings.spatial.filter '.mat'];
 util_bdisp(['[out] - Saving bci online fisher in ' savepath]);
