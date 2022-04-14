@@ -1,9 +1,9 @@
 clearvars; clc;
 
-subject = 'BOCH05';
+subject = 'BOCH01';
 
-includepat  = {subject, 'mi', 'mi_bhbf'};
-excludepat  = {'control', 'offline'};
+includepat  = {subject, 'mi', 'mi_bhbf', 'offline'};
+excludepat  = {'control', 'online'};
 spatialfilter = 'laplacian';
 artifactrej   = 'none'; % {'FORCe', 'none'}
 datapath    = ['analysis/' artifactrej '/psd/' spatialfilter '/'];
