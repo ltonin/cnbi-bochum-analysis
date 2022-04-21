@@ -1,9 +1,9 @@
 clearvars; clc;
 
-subject = 'BOCH05';
+subject = 'BOCH04';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
-excludepat  = {'guided', 'control'};
+excludepat  = {'control'};
 % includepat  = {subject, 'mi', 'mi_bhbf'};
 % excludepat  = {'ciao'};
 spatialfilter = 'laplacian';
@@ -29,12 +29,7 @@ util_mkdir('./', figdir);
 util_bdisp(['[io] - Importing ' num2str(nfiles) ' files from ' datapath ':']);
 [F, events, labels, classifiers, settings] = cnbibochum_concatenate_labels(files);
 
-U = log(F);
-P = proc_reshape_ts_bc(U);
-NumSamples = size(U, 1);
-NumChans   = size(U, 3);
-NumFreqs   = size(U, 2);
-SrcFreqs   = settings.spectrogram.freqgrid;
+NumSamples = size(F, 1);
 
 %% Get general events
 [~, TrialEvent] = proc_get_event2(CFeedbackEventId, NumSamples, events.POS, events.TYP, events.DUR);
@@ -66,108 +61,99 @@ for trId = 1:NumTrials
 end
 
 Xk = events.TYP(events.TYP == CorrectEventId | events.TYP == WrongEventId);
+Days = unique(labels.samples.Dk);
+NumDays = length(Days);
+Runs = unique(labels.samples.Rk);
+NumRuns = length(Runs);
+Dl = unique(labels.run.Dl);
 
-%% Determine average trial per session and average run per session
-Days = unique(Dk);
-NumDays = max(Days);
-TrialsPerDay = nan(NumDays, 1);
-RunsPerDay = nan(NumDays, 1);
-
-for dId = 1:NumDays
-    cindex = Dk == Days(dId);
-    TrialsPerDay(dId) = length(Ck(cindex));
-    RunsPerDay(dId) = length(unique(Rk(cindex)));
-end
-
-util_bdisp(['Saving trial and runs info in: ' subject '_trial_run_info.mat']);
-save([savedir subject '_trial_run_info.mat'], 'TrialsPerDay', 'RunsPerDay');
-
-%% Generic Labels
-Runs    = unique(labels.samples.Rk);
-Days    = unique(labels.samples.Dk);
-Weeks   = unique(labels.samples.Wk);
-Months  = unique(labels.samples.Nk);
-
-NumRuns   = length(Runs);
-NumDays   = length(Days);
-NumWeeks  = length(Weeks);
-NumMonths = length(Months);
-
-%% Select runs to be removed
-[rRmk, RemRuns] = cnbibochum_exclude_runs(subject, NumRuns);
-
-Rmk = false(NumTrials, 1);
-for trId = 1:NumTrials
-   crunId = Rk(trId);
-   
-   Rmk(trId) = rRmk(crunId);
-end
-
-%% Compute performances per run (overall and per class)
-RunPerf      = nan(NumRuns, 1);
-RunPerfClass = nan(NumRuns, NumClasses);
-
+%% Get labels per run
+rCsK = zeros(NumRuns, 1);
+rDk = zeros(NumRuns, 1);
+prevclassifier = [];
+currclassifier = [];
 for rId = 1:NumRuns
-    cindex = Rk == Runs(rId) & Rmk == false;
-    cntrials = sum(cindex);
+    index = labels.samples.Rk == Runs(rId);
+
+    rDk(rId) = unique(labels.samples.Dk(index));
+
+    % Classifier
+    currclassifier = classifiers(rId).filename;
+    if(strcmp(prevclassifier, currclassifier) == 0)
+        rCsK(rId) = 1;
+        prevclassifier = currclassifier;
+    end
     
-    RunPerf(rId) = 100*sum(Xk(cindex) == CorrectEventId)./cntrials;
-    
-    for cId = 1:NumClasses
-        cindex_class = cindex & Ck == ClassEventId(cId); 
-        cntrials_class = sum(cindex_class);
-        RunPerfClass(rId, cId) = 100*sum(Xk(cindex_class) == CorrectEventId)./cntrials_class;
+end
+
+%% Computing new classifier per day
+NCs = false(NumDays, 1);
+for dId = 1:NumDays
+    index = rDk == Days(dId);
+    if(sum(rCsK(index)) > 0)
+        NCs(dId) = true;
     end
 end
 
+
+%% Compute performances per run (overall)
+RunPerf      = nan(NumRuns, 1);
+
+for rId = 1:NumRuns
+   
+    cindex = Rk == Runs(rId);
+    cntrials = sum(cindex);
+    
+    RunPerf(rId) = 100*sum(Xk(cindex) == CorrectEventId)./cntrials;
+end
+
+
+
 %% Compute performances per day (overall and per class)
 DayPerf      = nan(NumDays, 1);
-DayPerfClass = nan(NumDays, NumClasses);
 
 for dId = 1:NumDays
-    %cindex = Dk == Days(dId) & Rmk == false;
+   
     cindex = Dk == Days(dId);
     cntrials = sum(cindex);
     
     DayPerf(dId) = 100*sum(Xk(cindex) == CorrectEventId)./cntrials;
-    
-    for cId = 1:NumClasses
-        cindex_class = Dk == Days(dId) & Ck == ClassEventId(cId) & Rmk == false; 
-        cntrials_class = sum(cindex_class);
-        DayPerfClass(dId, cId) = 100*sum(Xk(cindex_class) == CorrectEventId)./cntrials_class;
-    end
-end
-
-%% Correlation
-[RunCorr, RunPVal] = corr((1:NumRuns)', RunPerf, 'rows', 'pairwise');
-
-RunCorrClass = nan(NumClasses, 1);
-RunPValClass = nan(NumClasses, 1);
-for cId = 1:NumClasses
-    [RunCorrClass(cId), RunPValClass(cId)] = corr((1:NumRuns)', RunPerfClass(:, cId), 'rows', 'pairwise');
 end
 
 [DayCorr, DayPVal] = corr((1:NumDays)', DayPerf, 'rows', 'pairwise');
 
-DayCorrClass = nan(NumClasses, 1);
-DayPValClass = nan(NumClasses, 1);
-for cId = 1:NumClasses
-    [DayCorrClass(cId), DayPValClass(cId)] = corr((1:NumDays)', DayPerfClass(:, cId), 'rows', 'pairwise');
+if(strcmp(subject, 'BOCH05'))
+    DayPerf2 = nan(NumDays-3, 1);
+
+    for dId = 1:NumDays-3
+       
+        cindex = Dk == Days(dId);
+        cntrials = sum(cindex);
+        
+        DayPerf2(dId) = 100*sum(Xk(cindex) == CorrectEventId)./cntrials;
+    end
+    [DayCorr2, DayPVal2] = corr((1:NumDays-3)', DayPerf2, 'rows', 'pairwise');
 end
 
-%% Saving data
+%% Computer performance first last runs and ttest
+NumSelRuns = 10;
 
-performances.total.run   = RunPerf;
-performances.total.day   = DayPerf;
-performances.class.run   = RunPerfClass;
-performances.class.day   = DayPerfClass;
-performances.labels      = labels;
-performances.classifiers = classifiers;
+AvgPerf(1) = mean(RunPerf(1:NumSelRuns));
+AvgPerf(2) = mean(RunPerf(end-NumSelRuns+1:end));
+StdPerf(1) = std(RunPerf(1:NumSelRuns));
+StdPerf(2) = std(RunPerf(end-NumSelRuns+1:end));
 
+[htest, ptest] = ttest(RunPerf(1:NumSelRuns),RunPerf(end-NumSelRuns+1:end));
 
-savepath = [savedir '/' subject '_performances_' settings.spatial.filter '.mat'];
-util_bdisp(['[out] - Saving bci online performances in ' savepath]);
-save(savepath, 'performances');
+if(strcmp(subject, 'BOCH05'))
+    RunPerf2 = RunPerf(rDk <= NumDays -3);
+    AvgPerf2(1) = mean(RunPerf2(1:NumSelRuns));
+    AvgPerf2(2) = mean(RunPerf2(end-NumSelRuns+1:end));
+    StdPerf2(1) = std(RunPerf2(1:NumSelRuns));
+    StdPerf2(2) = std(RunPerf2(end-NumSelRuns+1:end));
+
+    [htest2, ptest2] = ttest(RunPerf2(1:NumSelRuns),RunPerf2(end-NumSelRuns+1:end));
+end
 
 %% Plotting performances per run and per day
 fig1 = figure;
@@ -180,35 +166,45 @@ NumCols = 2;
 subplot(NumRows, NumCols, 1);
 
 hold on;
-plot(RunPerf, '.k', 'MarkerSize', 6);
-
-plot(RunPerfClass, '.');
+h1 = scatter(1:NumDays, DayPerf, 'k', 'filled');
+h2 = plot(1:NumDays, DayPerf, 'k');
 lsline;
 hold off;
+set(gca, 'xtick', 1:NumDays);
+set(gca,'xticklabels', unique(Dl));
 grid on;
-xlabel('Run');
+ylim([0 100]);
+plot_vline(find(NCs)-0.1, 'k-');
+xlabel('Day');
 ylabel('Percentage [%]');
-title(['Performance over runs (r=' num2str(RunCorr, '%4.3f') ', p<' num2str(RunPVal, '%4.3f') ')']);
-legend('Average', ClassNames{1}, ClassNames{2}, 'Location', 'SouthEast');
+title(['Performance over days (r=' num2str(DayCorr, '%4.3f') ', p<' num2str(DayPVal, '%10.9f') ')']);
 
-% Performances per day
 subplot(NumRows, NumCols, 2);
 
 hold on;
-plot(DayPerf, 'k', 'LineWidth', 1);
-plot(DayPerfClass, '.');
-lsline;
+bar(AvgPerf);
+errorbar(AvgPerf, StdPerf, '.k');
 hold off;
+ylim([0 110]);
+set(gca, 'Xtick', 1:2);
+set(gca, 'xticklabel', {['First ' num2str(NumSelRuns) ' runs'],['Last ' num2str(NumSelRuns) ' runs']});
 grid on;
-xlabel('Day');
-ylabel('Percentage [%]');
-title(['Performance over days (r=' num2str(DayCorr, '%4.3f') ', p<' num2str(DayPVal, '%4.3f') ')']);
-legend('Average', ClassNames{1}, ClassNames{2}, 'Location', 'SouthEast');
+title(['pvalue = ' num2str(ptest, '%10.9f')]);
 
-sgtitle([subject '- Performances']);
-
+if(strcmp(subject, 'BOCH05'))
+    fig2 = figure;
+    hold on;
+    bar(AvgPerf2);
+    errorbar(AvgPerf2, StdPerf2, '.k');
+    hold off;
+    ylim([0 110]);
+    set(gca, 'Xtick', 1:2);
+    set(gca, 'xticklabel', {['First ' num2str(NumSelRuns) ' runs'],['Last ' num2str(NumSelRuns) ' runs']});
+    grid on;
+    title(['pvalue = ' num2str(ptest2, '%10.9f')]);
+end
 
 %% Saving figures
-filename1 = fullfile(figdir, [subject '_bci_performances.pdf']);
-util_bdisp(['[out] - Exporting bci performances to ' filename1]);
-fig_export(fig1, filename1, '-pdf');
+% filename1 = fullfile(figdir, [subject '_bci_performances.pdf']);
+% util_bdisp(['[out] - Exporting bci performances to ' filename1]);
+% fig_export(fig1, filename1, '-pdf');

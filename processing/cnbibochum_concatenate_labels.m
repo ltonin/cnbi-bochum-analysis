@@ -17,7 +17,7 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_lab
     Dk = nan(NumSamples, 1);
     Wk = nan(NumSamples, 1);
     Nk = nan(NumSamples, 1);
-    Dl = [];
+    Dl = cell(numfiles, 1);
     
     classifiers = [];
     settings = [];
@@ -65,9 +65,10 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_lab
         % Get day id and label
         if strcmpi(cdata.settings.date, lastday) == false
             currday = currday + 1;
-            Dl = cat(1, Dl, cdata.settings.date);
+            
             lastday = cdata.settings.date;
         end
+        Dl{fId} = cdata.settings.date;
 
         % Get week id
         cweek = week(datetime(cdata.settings.date, 'InputFormat', 'yyyyMMdd'));
@@ -138,6 +139,7 @@ function [F, events, labels, classifiers, settings] = cnbibochum_concatenate_lab
     labels.samples.Dk = Dk;
     labels.samples.Wk = Wk;
     labels.samples.Nk = Nk;
+    labels.run.Dl = Dl;
    
    % warning('on', 'backtrace');
 end
