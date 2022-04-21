@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH05';
+subject = 'BOCH04';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
 excludepat  = {'control', 'offline'};
@@ -143,6 +143,25 @@ end
 
 [selcorr, selpval] = corr((1:ndays)', selfisher);
 
+%% Computing first last run comparison
+nselruns = 10;
+AvgFisher(1) = mean(runselfisher(1:nselruns));
+AvgFisher(2) = mean(runselfisher(end-nselruns+1:end));
+StdFisher(1) = std(runselfisher(1:nselruns));
+StdFisher(2) = std(runselfisher(end-nselruns+1:end));
+
+[htest, ptest] = ttest(runselfisher(1:nselruns), runselfisher(end-nselruns+1:end));
+
+if(strcmp(subject, 'BOCH05'))
+    runselfisher2 = runselfisher(Dk <= ndays -3);
+    AvgFisher2(1) = mean(runselfisher2(1:nselruns));
+    AvgFisher2(2) = mean(runselfisher2(end-nselruns+1:end));
+    StdFisher2(1) = std(runselfisher2(1:nselruns));
+    StdFisher2(2) = std(runselfisher2(end-nselruns+1:end));
+
+    [htest2, ptest2] = ttest(runselfisher2(1:nselruns),runselfisher2(end-nselruns+1:end));
+end
+
 %% Computing new classifier
 NCs = false(ndays, 1);
 for dId = 1:ndays
@@ -154,9 +173,9 @@ end
 
 %% Plotting evolution
 fig1 = figure;
-fig_set_position(fig1, 'Top');
+fig_set_position(fig1, 'All');
 
-subplot(1, 2, 1);
+subplot(2, 2, 1);
 hold on;
 h1 = scatter(1:ndays, roifisher', 'filled');
 h2 = plot(1:ndays, roifisher');
@@ -167,7 +186,7 @@ hold off;
 for pId = 1:2
     set(h2(pId), 'Color', get(h1(pId),'CData'));
     set(h3(pId), 'Color', get(h1(pId),'CData'));
-    text(min(h1(pId).XData), max(max(h1.YData))-0.05*(pId-1), ['r=' num2str(roicorr(pId), '%4.2f') ', p=' num2str(roipval(pId), '%4.3f')], 'color', get(h1(pId),'CData'));
+    text(min(h1(pId).XData), max(max(h1.YData))-0.05*(pId-1), ['r=' num2str(roicorr(pId), '%5.3f') ', p=' num2str(roipval(pId), '%10.9f')], 'color', get(h1(pId),'CData'));
 end
 grid on;
 set(gca, 'xtick', 1:ndays);
@@ -175,14 +194,14 @@ set(gca,'xticklabels', unique(Dl));
 xlim([0 ndays+1]);
 ylimit = get(gca, 'YLim');
 ylim([0 ylimit(2)])
-ylim([0.05 0.55])
+%ylim([0.05 0.55])
 plot_vline(find(NCs)-0.1, 'k--');
 title([subject  ' | Evolution discriminancy in ROIs']);
 legend('medial', 'lateral');
 ylabel('discriminancy')
 xlabel('session')
 
-subplot(1, 2, 2);
+subplot(2, 2, 2);
 hold on;
 h4 = scatter(1:ndays, selfisher, 'filled', 'k');
 h5 = plot(1:ndays, selfisher);
@@ -191,18 +210,41 @@ h6 = lsline;
 hold off;
 set(h5, 'Color', get(h4,'CData'));
 set(h6, 'Color', get(h4,'CData'));
-text(min(h4.XData), max(h4.YData), ['r=' num2str(selcorr, '%4.2f') ', p=' num2str(selpval, '%4.3f')], 'color', get(h4,'CData'));
+text(min(h4.XData), max(h4.YData), ['r=' num2str(selcorr, '%5.3f') ', p=' num2str(selpval, '%10.9f')], 'color', get(h4,'CData'));
 grid on;
 set(gca, 'xtick', 1:ndays);
 set(gca,'xticklabels', unique(Dl));
 xlim([0 ndays+1]);
 ylimit = get(gca, 'YLim');
 ylim([0 ylimit(2)])
-ylim([0.0 0.5])
+%ylim([0.0 0.5])
 plot_vline(find(NCs)-0.1, 'k--');
 title([subject ' | Evolution discriminancy for selected features']);
 ylabel('discriminancy')
 xlabel('session')
+
+subplot(2, 2, 3);
+
+hold on;
+bar(AvgFisher);
+errorbar(AvgFisher, StdFisher, '.k');
+hold off;
+set(gca, 'Xtick', 1:2);
+set(gca, 'xticklabel', {['First ' num2str(nselruns) ' runs'],['Last ' num2str(nselruns) ' runs']});
+grid on;
+title(['pvalue = ' num2str(ptest, '%10.9f')]);
+
+if(strcmp(subject, 'BOCH05'))
+    subplot(2, 2, 4);
+    hold on;
+    bar(AvgFisher2);
+    errorbar(AvgFisher2, StdFisher2, '.k');
+    hold off;
+    set(gca, 'Xtick', 1:2);
+    set(gca, 'xticklabel', {['First ' num2str(nselruns) ' runs'],['Last ' num2str(nselruns) ' runs']});
+    grid on;
+    title(['pvalue = ' num2str(ptest2, '%10.9f')]);
+end
 
 %% Plotting topoplots
 fig2 = figure;

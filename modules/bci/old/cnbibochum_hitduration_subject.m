@@ -1,9 +1,9 @@
 clearvars; clc;
 
-subject = 'BOCH01';
+subject = 'BOCH02';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
-excludepat  = {'guided', 'control'};
+excludepat  = {'control'};
 % includepat  = {subject, 'mi', 'mi_bhbf'};
 % excludepat  = {'ciao'};
 spatialfilter = 'laplacian';
@@ -80,15 +80,15 @@ NumDays   = length(Days);
 NumWeeks  = length(Weeks);
 NumMonths = length(Months);
 
-%% Select runs to be removed
-[rRmk, RemRuns] = cnbibochum_exclude_runs(subject, NumRuns);
-
-Rmk = false(NumTrials, 1);
-for trId = 1:NumTrials
-   crunId = Rk(trId);
-   
-   Rmk(trId) = rRmk(crunId);
-end
+% %% Select runs to be removed
+% [rRmk, RemRuns] = cnbibochum_exclude_runs(subject, NumRuns);
+% 
+% Rmk = false(NumTrials, 1);
+% for trId = 1:NumTrials
+%    crunId = Rk(trId);
+%    
+%    Rmk(trId) = rRmk(crunId);
+% end
 
 
 %% Compute duration per run (overall and per class)
@@ -98,7 +98,8 @@ RunHitDurClassAvg = nan(NumRuns, NumClasses);
 RunHitDurClassStd = nan(NumRuns, NumClasses);
 
 for rId = 1:NumRuns
-    cindex = Rk == Runs(rId) & Rmk == false & Xk == CorrectEventId;
+    %cindex = Rk == Runs(rId) & Rmk == false & Xk == CorrectEventId;
+    cindex = Rk == Runs(rId) & Xk == CorrectEventId;
     
     
     RunHitDurAllAvg(rId) = mean(HitDur(cindex)*settings.spectrogram.wshift);
@@ -119,7 +120,8 @@ DayHitDurClassAvg = nan(NumDays, NumClasses);
 DayHitDurClassStd = nan(NumDays, NumClasses);
 
 for dId = 1:NumDays
-    cindex = Dk == Days(dId) & Rmk == false & Xk == CorrectEventId;
+    %cindex = Dk == Days(dId) & Rmk == false & Xk == CorrectEventId;
+    cindex = Dk == Days(dId) & Xk == CorrectEventId;
     
     DayHitDurAllAvg(dId) = mean(HitDur(cindex)*settings.spectrogram.wshift);
     DayHitDurAllStd(dId) = std(HitDur(cindex)*settings.spectrogram.wshift);

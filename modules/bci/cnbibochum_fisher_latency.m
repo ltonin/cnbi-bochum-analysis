@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH02';
+subject = 'BOCH05';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
 excludepat  = {'control', 'offline'};
@@ -73,6 +73,19 @@ end
 %% Computing latency-fisher correlation
 [corrLatencyFisher, pvalLatencyFisher] = corr(runselfisher, RunLatencyAvg, 'rows', 'pairwise');
 
+%% Computing first last run comparison
+nselruns = 15;
+nseldays = 3;
+first_idx = rDk <= nseldays;
+last_idx  = rDk > ndays - nseldays;
+AvgLatency(1) = nanmean(RunLatencyAvg(first_idx));
+AvgLatency(2) = nanmean(RunLatencyAvg(last_idx));
+StdLatency(1) = nanstd(RunLatencyAvg(first_idx));
+StdLatency(2) = nanstd(RunLatencyAvg(last_idx));
+
+[htest, ptest] = ttest2(RunLatencyAvg(first_idx), RunLatencyAvg(last_idx));
+
+
 %% Figures
 fig = figure;
 fig_set_position(fig, 'All');
@@ -86,8 +99,21 @@ subplot(2, 2, 2);
 title([subject ' | Day Latency (run-based)']);
 
 subplot(2, 2, 3)
-[h7, h8] = plot_latency_fisher(RunLatencyAvg, runselfisher, corrLatencyFisher, pvalLatencyFisher, [0 max(RunLatencyAvg)+1], [0 0.5]);
+[h7, h8] = plot_latency_fisher(RunLatencyAvg, runselfisher, corrLatencyFisher, pvalLatencyFisher, [0 max(RunLatencyAvg)+1], [0 2.5]);
 title([subject ' | Latency vs. Fisher']);
+
+subplot(2, 2, 4);
+
+hold on;
+bar(AvgLatency);
+errorbar(AvgLatency, StdLatency, '.k');
+hold off;
+set(gca, 'Xtick', 1:2);
+set(gca, 'xticklabel', {['First ' num2str(nselruns) ' runs'],['Last ' num2str(nselruns) ' runs']});
+grid on;
+title(['pvalue = ' num2str(ptest, '%10.9f')]);
+
+
 
 %% Exporting figure
 filename = fullfile(figdir, [subject '_latency_fisher.pdf']);
@@ -141,7 +167,7 @@ function [h1, h2, h3] = plot_day_latency(latency, newclassifier, rval, pval, yli
     hold off;
     h3 = lsline;
     ylim([ylimits(1) ylimits(2)])
-    text(min(h1.XData), ylimits(2) - 1, ['r=' num2str(rval, '%4.2f') ', p=' num2str(pval, '%4.3f')], 'color', get(h1,'CData'));
+    text(min(h1.XData), ylimits(2) - 1, ['r=' num2str(rval, '%5.3f') ', p=' num2str(pval, '%10.9f')], 'color', get(h1,'CData'));
     plot_vline(find(newclassifier)-0.1, 'k--');
     grid on;
     set(gca, 'xtick', 1:ndays);
@@ -156,7 +182,7 @@ function [h1, h2] = plot_latency_fisher(latency, fisher, rval, pval, xlimits, yl
     xlim([xlimits(1) xlimits(2)]);
     ylim([ylimits(1) ylimits(2)]);
     h2 = lsline;
-    text(max(h1.XData) - 2, max(h1.YData), ['r=' num2str(rval, '%4.2f') ', p=' num2str(pval, '%4.3f')], 'color', get(h1,'CData'));
+    text(max(h1.XData) - 2, max(h1.YData), ['r=' num2str(rval, '%5.3f') ', p=' num2str(pval, '%10.9f')], 'color', get(h1,'CData'));
     grid on;
     xlabel('time [s]');
     ylabel('fisher score')

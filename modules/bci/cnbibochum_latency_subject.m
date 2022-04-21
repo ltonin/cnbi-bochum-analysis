@@ -1,6 +1,6 @@
 clearvars; clc;
 
-subject = 'BOCH05';
+subject = 'BOCH02';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
 excludepat  = {'control', 'offline'};
