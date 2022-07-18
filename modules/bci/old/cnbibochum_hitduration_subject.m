@@ -3,7 +3,7 @@ clearvars; clc;
 subject = 'BOCH02';
 
 includepat  = {subject, 'mi', 'mi_bhbf', 'online'};
-excludepat  = {'control'};
+excludepat  = {'guided', 'control'};
 % includepat  = {subject, 'mi', 'mi_bhbf'};
 % excludepat  = {'ciao'};
 spatialfilter = 'laplacian';

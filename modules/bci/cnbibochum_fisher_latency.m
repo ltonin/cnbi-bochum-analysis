@@ -74,14 +74,20 @@ end
 [corrLatencyFisher, pvalLatencyFisher] = corr(runselfisher, RunLatencyAvg, 'rows', 'pairwise');
 
 %% Computing first last run comparison
-nselruns = 15;
-nseldays = 3;
-first_idx = rDk <= nseldays;
-last_idx  = rDk > ndays - nseldays;
+nselruns = 10;
+%nseldays = 3;
+% first_idx = rDk <= nseldays;
+% last_idx  = rDk > ndays - nseldays;
+first_idx = 1:nselruns;
+last_idx  = nruns-nselruns+1:nruns;
+
 AvgLatency(1) = nanmean(RunLatencyAvg(first_idx));
 AvgLatency(2) = nanmean(RunLatencyAvg(last_idx));
 StdLatency(1) = nanstd(RunLatencyAvg(first_idx));
 StdLatency(2) = nanstd(RunLatencyAvg(last_idx));
+
+
+
 
 [htest, ptest] = ttest2(RunLatencyAvg(first_idx), RunLatencyAvg(last_idx));
 
